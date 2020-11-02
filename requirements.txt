@@ -1,0 +1,7 @@
+argparse
+pysdl2
+pysdl2-dll
+numpy
+opencv-python
+opencv-contrib-python
+json
