@@ -1,12 +1,14 @@
 import numpy as np
 import cv2
-import sdl2.ext
 import sys
 
 SCX, SCY = 700, 700
-window = None
-windowArray = None
 image = 255 * np.ones((SCX, SCY, 4), np.uint8)
+start = None
+end = None
+down = False
+maze = None
+draw = True
 SKYBLUE = [250, 206, 135, 1]
 SKYBLUE_FLASH = [255, 255, 0, 1]
 PURPLE_BLUE = [240, 144, 141, 1]
@@ -28,25 +30,6 @@ WHITE = [255, 255, 255]
 BLACK = [0, 0, 0]
 
 
-def init():
-    global window
-    global windowArray
-
-    sdl2.ext.init()
-    window = sdl2.ext.Window("Astar Visualizer", size=(SCX, SCY))
-    windowArray = sdl2.ext.pixels3d(window.get_surface())
-    window.show()
-
-
-def get_events():
-    events = sdl2.ext.get_events()
-    for e in events:
-        if e.type == sdl2.SDL_QUIT:
-            sdl2.ext.quit()
-            sys.exit(0)
-            break
-
-
 def draw_rect(x1, y1, x2, y2, color):
     x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
     pt1 = (x1, y1)
@@ -60,7 +43,8 @@ def draw_rect(x1, y1, x2, y2, color):
 
 
 def print_maze(maze, start, end):
-    get_events()
+    global draw
+
     leny = len(maze)
     lenx = len(maze[0])
     wy = SCY / leny
@@ -79,8 +63,10 @@ def print_maze(maze, start, end):
         y = end[0]
         x = end[1]
         draw_rect(x * wx, y * wy, x * wx + wx, y * wy + wy, PURPLE)
-    np.copyto(windowArray, image.swapaxes(0, 1))
-    window.refresh()
+    cv2.imshow('Astar Visualizer', image)
+    key = cv2.waitKey(1)
+    if key == 32: #space bar
+        draw = False
 
 
 def get_pos(x, y, maze):
@@ -92,49 +78,42 @@ def get_pos(x, y, maze):
 
 
 def create_maze(args):
+    global start, end, down, maze
+
     x, y = 30, 30
     if args.maze_size:
         if len(args.maze_size) == 1:
             x, y = args.maze_size[0], args.maze_size[0]
         else:
             x, y = args.maze_size[0], args.maze_size[1]
-    maze = random_maze = np.random.choice([1], size=(x, y), p=[3 / 3])
-    start = None
-    end = None
-    down = False
-    while True:
-        events = sdl2.ext.get_events()
-        for e in events:
-            if e.type == sdl2.SDL_QUIT:
-                sdl2.ext.quit()
-                sys.exit(0)
-                break
-            if e.type == sdl2.SDL_KEYDOWN:
-                if e.key.keysym.sym == 27:  # ESC
-                    sdl2.ext.quit()
-                    break
-                if e.key.keysym.sym == ord(" "):
-                    sdl2.ext.quit()
-                    return {"maze": maze, "start": start, "end": end}
-            if e.type == sdl2.SDL_MOUSEBUTTONDOWN or down:
-                pos = get_pos(e.button.x, e.button.y, maze)
-                if not start:
-                    start = pos
-                    continue
-                if not end:
-                    end = pos
-                    continue
-                try:
+    maze = np.random.choice([1], size=(x, y), p=[3 / 3])
+
+
+def mouse_callback(event, x, y, flags, param):
+    global start, end, down, maze
+
+    if event == 1 or down: #mouse down
+        down = True
+        pos = get_pos(x, y, maze)
+        if not start and event == 1:
+            start = pos
+        elif not end and event == 1:
+            end = pos
+        else:
+            try:
+                if end and start and pos != end and pos != start:
                     maze[pos[0]][pos[1]] = 0
-                except IndexError:
-                    pass
-
-                down = True
-            if e.type == sdl2.SDL_MOUSEBUTTONUP:
-                down = False
-        print_maze(maze, start, end)
-
+            except IndexError:
+                pass
+    if event == 4: #mouse up
+        down = False
 
 def main(args):
-    init()
-    return create_maze(args)
+    global maze, start, end, draw
+
+    cv2.namedWindow("Astar Visualizer")
+    cv2.setMouseCallback("Astar Visualizer", mouse_callback)
+    create_maze(args)
+    while draw:
+        print_maze(maze, start, end)
+    return {"maze": maze, "start": start, "end": end}

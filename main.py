@@ -1,7 +1,6 @@
 import sys
 import numpy as np
 import cv2
-import sdl2.ext
 import time
 import src.mazes as mazes
 import src.draw as draw
